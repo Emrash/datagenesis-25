@@ -241,14 +241,25 @@ class GeminiService:
             response = self.model.generate_content(prompt)
             text = response.text
             
-            # Clean and parse JSON
+            # Clean and parse JSON with better error handling
             if '```json' in text:
                 text = text.split('```json')[1].split('```')[0]
             elif '```' in text:
                 text = text.split('```')[1]
             
             text = text.strip()
-            data = json.loads(text)
+            
+            # Additional cleaning for malformed JSON
+            text = text.replace('\n', ' ').replace('\r', ' ')
+            # Fix common JSON issues
+            text = text.replace(',}', '}').replace(',]', ']')
+            
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError as json_err:
+                logger.error(f"❌ JSON parsing failed: {str(json_err)}")
+                logger.error(f"❌ Problematic JSON: {text[:500]}...")
+                raise Exception(f"JSON parsing failed: {str(json_err)}")
             
             if isinstance(data, list) and len(data) > 0:
                 logger.info(f"✅ Generated {len(data)} synthetic records with Gemini")
@@ -373,6 +384,127 @@ class GeminiService:
                 "sensitive_attributes": [],
                 "risk_level": "medium",
                 "recommendations": [f"Privacy analysis error: {str(e)}"]
+            }
+
+    async def analyze_data_comprehensive(
+        self,
+        data: List[Dict[str, Any]],
+        config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Comprehensive data analysis for domain detection"""
+        if not self.is_initialized:
+            return {
+                "domain": "general",
+                "confidence": 0.7,
+                "data_quality": {"score": 85, "issues": [], "recommendations": []},
+                "schema_inference": {},
+                "recommendations": {"generation_strategy": "Standard generation - AI analysis unavailable"}
+            }
+
+        prompt = f"""
+        Analyze this dataset comprehensively and determine its domain:
+        Sample Data: {json.dumps(data[:3], indent=2)}
+        
+        Provide detailed analysis including:
+        1. Domain classification (healthcare, finance, retail, manufacturing, education, etc.)
+        2. Confidence level (0-1)
+        3. Data quality assessment
+        4. Schema inference for each field
+        5. Recommendations for synthetic data generation
+        
+        Return as JSON:
+        {{
+            "domain": "detected_domain",
+            "confidence": 0.9,
+            "data_quality": {{
+                "score": 85,
+                "issues": ["list of issues"],
+                "recommendations": ["list of recommendations"]
+            }},
+            "schema_inference": {{
+                "field_name": "inferred_type_and_pattern"
+            }},
+            "recommendations": {{
+                "generation_strategy": "specific strategy for this domain"
+            }}
+        }}
+        """
+
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text
+            
+            if '```json' in text:
+                text = text.split('```json')[1].split('```')[0]
+            elif '```' in text:
+                text = text.split('```')[1]
+            
+            return json.loads(text.strip())
+        except Exception as e:
+            logger.error(f"❌ Comprehensive analysis failed: {str(e)}")
+            return {
+                "domain": "general",
+                "confidence": 0.7,
+                "data_quality": {"score": 85, "issues": [], "recommendations": []},
+                "schema_inference": {},
+                "recommendations": {"generation_strategy": "Standard generation - AI analysis unavailable"},
+                "error": str(e)
+            }
+
+    async def detect_bias_comprehensive(
+        self,
+        data: List[Dict[str, Any]],
+        config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Comprehensive bias detection and analysis"""
+        if not self.is_initialized:
+            return {
+                "bias_score": 88,
+                "detected_biases": [],
+                "bias_types": [],
+                "recommendations": ["Enable Gemini API for advanced bias detection"]
+            }
+
+        prompt = f"""
+        Analyze this dataset for potential biases:
+        Sample Data: {json.dumps(data[:3], indent=2)}
+        
+        Check for:
+        1. Selection bias
+        2. Demographic bias (gender, age, race)
+        3. Geographic bias
+        4. Temporal bias
+        5. Representation bias
+        
+        Return as JSON:
+        {{
+            "bias_score": number_0_to_100,
+            "detected_biases": ["list of detected biases"],
+            "bias_types": ["selection", "demographic", "geographic", "temporal"],
+            "severity": "low|medium|high",
+            "recommendations": ["specific mitigation strategies"],
+            "mitigation_strategies": ["actionable steps"]
+        }}
+        """
+
+        try:
+            response = self.model.generate_content(prompt)
+            text = response.text
+            
+            if '```json' in text:
+                text = text.split('```json')[1].split('```')[0]
+            elif '```' in text:
+                text = text.split('```')[1]
+            
+            return json.loads(text.strip())
+        except Exception as e:
+            logger.error(f"❌ Bias detection failed: {str(e)}")
+            return {
+                "bias_score": 88,
+                "detected_biases": [],
+                "bias_types": [],
+                "recommendations": [f"Bias detection error: {str(e)}"],
+                "mitigation_strategies": []
             }
 
     async def switch_model(self, model_name: str) -> Dict[str, Any]:

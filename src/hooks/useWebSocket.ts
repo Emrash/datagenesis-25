@@ -25,8 +25,8 @@ export const useWebSocket = (url: string, options: UseWebSocketOptions = {}) => 
 
   const connect = () => {
     try {
-      // Convert relative URL to absolute WebSocket URL
-      const wsUrl = url.startsWith('ws') ? url : `ws://localhost:8080${url}`;
+      // Convert relative URL to absolute WebSocket URL with correct port
+      const wsUrl = url.startsWith('ws') ? url : `ws://localhost:8000/ws/${url}`;
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {

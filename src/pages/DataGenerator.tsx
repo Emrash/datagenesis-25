@@ -30,6 +30,7 @@ import {
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import AIProcessLogger from '../components/AIProcessLogger';
+import RealTimeStatus from '../components/RealTimeStatus';
 
 const DataGenerator: React.FC = () => {
   const [selectedDataType, setSelectedDataType] = useState('tabular');
@@ -234,7 +235,7 @@ const DataGenerator: React.FC = () => {
       console.log('✅ Schema generated successfully:', schema);
       
       // Validate the schema response
-      if (!schema || !schema.dataset_schema || Object.keys(schema.dataset_schema).length === 0) {
+      if (!schema || !schema.schema || Object.keys(schema.schema).length === 0) {
         throw new Error('Generated schema is empty or invalid');
       }
       
@@ -243,7 +244,7 @@ const DataGenerator: React.FC = () => {
       
       toast.dismiss();
       toast.success(
-        `${backendHealthy ? '🔗 Backend' : '🏠 Local'} schema generated! Found ${Object.keys(schema.dataset_schema).length} fields.`,
+        `${backendHealthy ? '🔗 Backend' : '🏠 Local'} schema generated! Found ${Object.keys(schema.schema).length} fields.`,
         { duration: 4000 }
       );
       
@@ -292,10 +293,10 @@ const DataGenerator: React.FC = () => {
       
       if (inputMethod === 'upload' && uploadedData) {
         sourceData = uploadedData.data || [];
-        schema = uploadedData.dat || {};
+        schema = uploadedData.schema || {};
       } else if (inputMethod === 'describe' && generatedSchema) {
-        sourceData = generatedSchema.sampleData || [];
-        schema = generatedSchema.dat || {};
+        sourceData = generatedSchema.sample_data || [];
+        schema = generatedSchema.schema || {};
       }
 
       console.log('🚀 Starting generation with config:', {
@@ -418,7 +419,21 @@ const DataGenerator: React.FC = () => {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* Backend Status Indicator */}
+          {/* Real-time Processing Indicator - Enhanced */}
+          {isGenerating && (
+            <motion.div 
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full border border-blue-500/30"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+              <span className="text-blue-300 text-sm font-medium">AI Processing</span>
+              <span className="text-blue-200 text-xs">{generationProgress}%</span>
+            </motion.div>
+          )}
+          
+          {/* Status Indicators */}
           <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-sm ${
             geminiStatus === 'unknown' ? 'bg-gray-500/20 border-gray-500/30' :
             geminiStatus === 'online' ? 'bg-green-500/20 border-green-500/30' : 'bg-red-500/20 border-red-500/30'
@@ -434,14 +449,9 @@ const DataGenerator: React.FC = () => {
               geminiStatus === 'unknown' ? 'text-gray-300' :
               geminiStatus === 'online' ? 'text-green-300' : 'text-red-300'
             }`}>
-              {geminiStatus === 'unknown' ? 'Checking Gemini...' :
-               geminiStatus === 'online' ? 'Gemini 2.0 Flash Online' : 'Gemini Offline'}
+              {geminiStatus === 'unknown' ? 'Checking...' :
+               geminiStatus === 'online' ? 'Gemini Online' : 'Gemini Offline'}
             </span>
-          </div>
-          
-          <div className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-full border border-purple-500/30">
-            <Brain className="w-4 h-4 text-purple-400" />
-            <span className="text-sm text-purple-300">AI Agents Active</span>
           </div>
         </div>
       </motion.div>
@@ -882,7 +892,7 @@ const DataGenerator: React.FC = () => {
                 <div>Input Method: {inputMethod}</div>
                 <div>Generated Schema: {generatedSchema ? 'Yes' : 'No'}</div>
                 <div>Uploaded Data: {uploadedData ? 'Yes' : 'No'}</div>
-                <div>Schema Fields: {generatedSchema ? Object.keys(generatedSchema.dat || {}).length : 0}</div>
+                <div>Schema Fields: {generatedSchema ? Object.keys(generatedSchema.schema || {}).length : 0}</div>
                 <div>Button Enabled: {isGenerationButtonEnabled() ? 'Yes' : 'No'}</div>
                 <div>Gemini: {geminiStatus}</div>
                 <div>Backend: {backendHealthy ? 'Healthy' : 'Offline'}</div>
@@ -978,19 +988,19 @@ const DataGenerator: React.FC = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Fields:</span>
                   <span className="text-white font-medium">
-                    {Object.keys(generatedSchema.dat || {}).length}
+                    {Object.keys(generatedSchema.schema || {}).length}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Domain:</span>
                   <span className="text-purple-400 font-medium">
-                    {generatedSchema.detectedDomain || selectedDomain}
+                    {generatedSchema.detected_domain || selectedDomain}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Sample Rows:</span>
                   <span className="text-green-400 font-medium">
-                    {generatedSchema.sampleData?.length || 0}
+                    {generatedSchema.sample_data?.length || 0}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -1003,16 +1013,16 @@ const DataGenerator: React.FC = () => {
               <div className="mt-4 p-3 bg-gray-700/30 rounded-lg">
                 <p className="text-xs text-gray-400 mb-2">Schema Preview:</p>
                 <div className="space-y-1">
-                  {generatedSchema.dat && Object.keys(generatedSchema.dat).length > 0 ? (
+                  {generatedSchema.schema && Object.keys(generatedSchema.schema).length > 0 ? (
                     <>
-                      {Object.entries(generatedSchema.dat).slice(0, 3).map(([key, value]: [string, any]) => (
+                      {Object.entries(generatedSchema.schema).slice(0, 3).map(([key, value]: [string, any]) => (
                         <div key={key} className="flex justify-between text-xs">
                           <span className="text-gray-300">{key}</span>
                           <span className="text-purple-400">{value.type || 'unknown'}</span>
                         </div>
                       ))}
-                      {Object.keys(generatedSchema.dat).length > 3 && (
-                        <p className="text-xs text-gray-400">... and {Object.keys(generatedSchema.dat).length - 3} more</p>
+                      {Object.keys(generatedSchema.schema).length > 3 && (
+                        <p className="text-xs text-gray-400">... and {Object.keys(generatedSchema.schema).length - 3} more</p>
                       )}
                     </>
                   ) : (
@@ -1116,6 +1126,74 @@ const DataGenerator: React.FC = () => {
                 <li>• File size limit: 10MB</li>
                 <li>• Supported formats: .csv, .json</li>
               </ul>
+            </motion.div>
+          )}
+        </div>
+        
+        {/* Right Column - Real-time Status */}
+        <div className="space-y-6">
+          <RealTimeStatus />
+          
+          {/* Live Progress Monitor */}
+          {isGenerating && (
+            <motion.div
+              className="p-4 bg-gradient-to-br from-purple-900/30 to-pink-900/20 border border-purple-500/30 rounded-lg"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-purple-400 animate-pulse" />
+                AI Generation Progress
+              </h3>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-300">Progress</span>
+                  <span className="text-purple-300 font-medium">{generationProgress}%</span>
+                </div>
+                
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <motion.div
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${generationProgress}%` }}
+                    transition={{ duration: 0.5 }}
+                  />
+                </div>
+                
+                <div className="text-xs text-gray-400">
+                  Using {geminiStatus === 'online' ? 'Gemini 2.0 Flash' : 'Local AI Agents'}
+                </div>
+              </div>
+            </motion.div>
+          )}
+          
+          {/* Real-time Logs */}
+          {realtimeLogs.length > 0 && (
+            <motion.div
+              className="p-4 bg-gray-800/50 border border-gray-700/50 rounded-lg"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-yellow-400" />
+                Real-time Activity
+              </h3>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {realtimeLogs.slice(-8).map((log, index) => (
+                  <motion.div
+                    key={index}
+                    className="text-xs text-gray-300 font-mono p-2 bg-gray-700/30 rounded"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.2, delay: index * 0.05 }}
+                  >
+                    {log}
+                  </motion.div>
+                ))}
+              </div>
             </motion.div>
           )}
         </div>

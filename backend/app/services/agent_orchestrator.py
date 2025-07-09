@@ -343,7 +343,7 @@ class PrivacyAgent(BaseAgent):
         try:
             # Use Gemini for privacy assessment if available
             if self.gemini_service and self.gemini_service.is_initialized:
-                privacy_assessment = await self.gemini_service.assess_privacy_risks(data, config)
+                privacy_assessment = await self.gemini_service.assess_privacy_risks(data[:3] if data else [], config)
             else:
                 # Fallback privacy assessment
                 privacy_assessment = {
